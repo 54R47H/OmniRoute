@@ -1,28 +1,32 @@
-# Base image
-FROM node:lts-alpine AS base
+# Build Stage
+FROM node:20-alpine AS builder
+
 WORKDIR /app
 
-# Install dependencies
-FROM base AS deps
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
 COPY scripts ./scripts
+
 RUN npm ci --legacy-peer-deps --ignore-scripts
 
-# Build the app with memory optimizations
-FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build
 
-# Production server
-FROM base AS runner
+# Production Stage
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
 ENV NODE_ENV=production
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-COPY --from=builder /app/public ./public
-COPY --from=builder .next/standalone ./
-COPY --from=builder .next/static ./.next/static
-USER nextjs
+
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps --omit=dev --ignore-scripts
+
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 3000
-CMD ["node", "server.js"]
+
+CMD ["node", "dist/main.js"]

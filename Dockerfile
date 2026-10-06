@@ -2,10 +2,11 @@
 FROM node:lts-alpine AS base
 WORKDIR /app
 
-# Install dependencies with legacy peer deps
+# Install dependencies
 FROM base AS deps
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps
+COPY scripts ./scripts
+RUN npm ci --legacy-peer-deps --ignore-scripts
 
 # Build the app with memory optimizations
 FROM base AS builder
@@ -25,6 +26,3 @@ COPY --from=builder .next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]
-
-
-
